@@ -11,7 +11,6 @@ const char* ssid = "qlab_goscie";
 const char* password = "qlab2023"; 
 WebServer server(80);
 
-bool firmwareSent = false;  // Flaga, aby kontrolować, czy firmware został wysłany
 int totalBytes = 0;
 
 void setup() {
@@ -31,17 +30,13 @@ void setup() {
   }
   Serial.println("Connected to WiFi");
 
-  // Strona główna z przyciskiem do uploadu i wysłania firmware'u przez UART
   server.on("/", HTTP_GET, []() {
     server.send(200, "text/html", uploadForm());
   });
-
-  // Endpoint do obsługi przesyłania pliku binarnego
   server.on("/upload", HTTP_POST, []() {
     server.send(200, "text/plain", "File Uploaded Successfully");
   }, handleFileUpload);
 
-  // Endpoint do uruchomienia wysyłania firmware'u przez UART
   server.on("/send-firmware", HTTP_GET, []() {
     if (SPIFFS.exists(FIRMWARE_FILE)) {
       File firmware = SPIFFS.open(FIRMWARE_FILE, "r");
@@ -66,7 +61,6 @@ void loop() {
   server.handleClient();
 }
 
-// Funkcja do wysyłania firmware'u przez UART
 void sendFirmwareOverUART(File file) {
   const size_t bufferSize = 128;  
   uint8_t buffer[bufferSize];
@@ -77,7 +71,7 @@ void sendFirmwareOverUART(File file) {
 
   if(totalBytes == 0){
     uint32_t fileSize = file.size();
-    Serial.print(fileSize);
+    Serial.printf("Update size: %d b \n",fileSize);
     Serial1.write((uint8_t*)&fileSize, sizeof(fileSize)); 
   }
 
@@ -87,14 +81,14 @@ void sendFirmwareOverUART(File file) {
     Serial1.write(buffer, bytesRead); 
     Serial.print("."); 
     totalBytes += bytesRead;
-    delay(50);
+    //dostosowac przerwe w przesylaniu paczek lub baud rate
+    delay(200);
   }
 
   Serial.printf("\nFirmware sent over UART. Sent %d bytes\n", totalBytes);
   totalBytes = 0;
 }
 
-// Generowanie formularza HTML do uploadu pliku i przycisku do wysyłania firmware'u
 String uploadForm() {
   return "<form method='POST' action='/upload' enctype='multipart/form-data'>"
          "<input type='file' name='firmware'><br><br>"

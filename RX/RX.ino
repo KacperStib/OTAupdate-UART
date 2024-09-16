@@ -8,7 +8,7 @@ char uart_buffer[UART_BUFFER_SIZE];
 int uart_bytes_read = 0;
 int offset = 0;
 
-size_t totalBytesReceived = 0;  // Liczba odebranych bajtów
+size_t totalBytesReceived = 0;  
 
 uint32_t fileSize = 0;
 uint8_t* valuePtr = (uint8_t*)&fileSize;
@@ -27,18 +27,17 @@ void loop() {
       for (size_t i = 0; i < sizeof(fileSize); ++i) {
         valuePtr[i] = Serial1.read();
       }
-      Serial.printf("Upadte size: %d/n", fileSize);
+      Serial.printf("Upadte size: %d b\n", fileSize);
     }
     uart_bytes_read = Serial1.readBytes(uart_buffer, UART_BUFFER_SIZE);
     //showBytes();
 
-    totalBytesReceived += uart_bytes_read;
-    Serial.printf("Total bytes received: %d\n", totalBytesReceived);
-
-    //if(totalBytesReceived > 250500)
-      //showBytes();
-
-    if (uart_bytes_read == 128) {
+    //test
+    /*
+    if(totalBytesReceived > (fileSize - UART_BUFFER_SIZE))
+      showBytes();
+    */
+    if (uart_bytes_read > 0) {
       //Serial.println("Receiving OTA data...");
       performOTAUpdate(uart_buffer, uart_bytes_read);
     }
@@ -47,6 +46,7 @@ void loop() {
 
 void performOTAUpdate(char* data, size_t len) {
 
+  //OTA start
   if (!Update.isRunning()){
     if (!Update.begin(fileSize)) {  
       Serial.println("OTA begin failed");
@@ -55,14 +55,16 @@ void performOTAUpdate(char* data, size_t len) {
     Serial.println("OTA begin success");
   }
 
+  //OTA write
   if (Update.write((uint8_t*)data, len) != len) {
     Serial.println("OTA write failed");
     return;
   }
 
   totalBytesReceived += len;
-  Serial.printf("Total bytes received: %d\n", totalBytesReceived);
+  Serial.printf("Received: %d b\n", totalBytesReceived);
 
+  //OTA end
   if (Serial1.available() == 0 && totalBytesReceived >= fileSize) {  
     if (Update.end(true)) {
       if (Update.isFinished()) {
@@ -79,6 +81,7 @@ void performOTAUpdate(char* data, size_t len) {
 }
 
 
+//Funkcja do sprawdzenia poprawnosci przeslanego pliku
 void showBytes(){
 
   for(int i = 0 ; i < UART_BUFFER_SIZE / 16 ; i++){
