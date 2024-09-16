@@ -7,24 +7,18 @@
 #define UART_TX_PIN 21  
 #define FIRMWARE_FILE "/firmware.bin" 
 
-const char* ssid = "qlab_goscie";         // Zastąp swoją nazwą Wi-Fi
-const char* password = "qlab2023"; // Zastąp swoim hasłem Wi-Fi
-
-uint32_t totalBytes = 0;
-
+const char* ssid = "qlab_goscie";         
+const char* password = "qlab2023"; 
 WebServer server(80);
+
 bool firmwareSent = false;  // Flaga, aby kontrolować, czy firmware został wysłany
+int totalBytes = 0;
 
 void setup() {
   Serial.begin(115200);
   
-  Serial1.begin(115200);
+  Serial1.begin(115200, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
-   //clear
-  while (Serial1.available()) {
-    Serial1.read();
-  }
-  
   if (!SPIFFS.begin(true)) {
     Serial.println("Failed to mount SPIFFS");
     return;
@@ -72,34 +66,28 @@ void loop() {
   server.handleClient();
 }
 
+// Funkcja do wysyłania firmware'u przez UART
 void sendFirmwareOverUART(File file) {
-  const size_t bufferSize = 128;  // Zmniejszony rozmiar pakietu do 256 bajtów
+  const size_t bufferSize = 128;  
   uint8_t buffer[bufferSize];
   size_t bytesRead;
 
   Serial.println("Starting firmware upload over UART in 3 sec!"); 
   delay(3000);
 
+  if(totalBytes == 0){
+    uint32_t fileSize = file.size();
+    Serial.print(fileSize);
+    Serial1.write((uint8_t*)&fileSize, sizeof(fileSize)); 
+  }
+
+  delay(50);
+  
   while ((bytesRead = file.read(buffer, bufferSize)) > 0) {
-    size_t bytesWritten = 0;
-
-    // Pętla wysyłania danych, dopóki nie zostaną wysłane wszystkie bajty
-    while (bytesWritten < bytesRead) {
-      size_t availableForWrite = Serial1.availableForWrite();  // Sprawdź ile miejsca w buforze UART
-
-      if (availableForWrite > 0) {
-        // Wyślij tyle danych, ile może pomieścić bufor UART
-        size_t chunkSize = min(availableForWrite, bytesRead - bytesWritten);
-        size_t bytesSent = Serial1.write(buffer + bytesWritten, chunkSize);
-
-        bytesWritten += bytesSent;
-
-        Serial.print(".");  // Informacja o przesłaniu kolejnej partii danych
-      }
-
-      delay(10);  // Krótkie opóźnienie, aby dać czas na przetworzenie danych
-    }
-    totalBytes += bytesWritten;
+    Serial1.write(buffer, bytesRead); 
+    Serial.print("."); 
+    totalBytes += bytesRead;
+    delay(50);
   }
 
   Serial.printf("\nFirmware sent over UART. Sent %d bytes\n", totalBytes);
@@ -138,14 +126,3 @@ void handleFileUpload() {
     Serial.printf("Upload successful: %s, %u bytes\n", upload.filename.c_str(), upload.totalSize);
   }
 }
-/*
-void showBytes(){
-
-  for(int i = 0 ; i < 16 ; i++){
-    for(int j = 0 ; j < 16 ; j++){
-      Serial.printf("  %02hhx  " ,uart_buffer[i + j]);
-    }
-    Serial.println();
-  }    
-}
-*/
