@@ -23,6 +23,7 @@ void setup() {
 void loop() {
   if (Serial1.available()) {
 
+    // Receive update size
     if(fileSize == 0){
       for (size_t i = 0; i < sizeof(fileSize); ++i) {
         valuePtr[i] = Serial1.read();
@@ -30,9 +31,8 @@ void loop() {
       Serial.printf("Upadte size: %d b\n", fileSize);
     }
     uart_bytes_read = Serial1.readBytes(uart_buffer, UART_BUFFER_SIZE);
-    //showBytes();
 
-    //test
+    // Test
     /*
     if(totalBytesReceived > (fileSize - UART_BUFFER_SIZE))
       showBytes();
@@ -69,7 +69,7 @@ void performOTAUpdate(char* data, size_t len) {
     if (Update.end(true)) {
       if (Update.isFinished()) {
         Serial.println("OTA success, rebooting...");
-        ESP.restart();  // Uruchom ponownie ESP
+        ESP.restart();  
       } else {
         Serial.println("OTA failed");
       }
@@ -81,9 +81,8 @@ void performOTAUpdate(char* data, size_t len) {
 }
 
 
-//Funkcja do sprawdzenia poprawnosci przeslanego pliku
+// Show all bytes of sent package (cannot be used at every package - Serial.prinf is too slow)
 void showBytes(){
-
   for(int i = 0 ; i < UART_BUFFER_SIZE / 16 ; i++){
     Serial.printf(" %x | ", offset);
     offset++;
@@ -92,5 +91,4 @@ void showBytes(){
     }
     Serial.println();
   }    
-
 }

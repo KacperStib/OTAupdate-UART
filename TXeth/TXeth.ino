@@ -1,3 +1,4 @@
+// ETH pins for OLMIEX ESP32_POE (must be defined before ETH.H)
 #define ETH_PHY_TYPE ETH_PHY_LAN8720
 #define ETH_PHY_ADDR 0
 #define ETH_PHY_MDC 23
@@ -7,7 +8,7 @@
 
 #include "SPIFFS.h"
 #include "FS.h"
-#include <ETH.h>             // Include Ethernet library
+#include <ETH.h>             
 #include <WebServer.h>
 #include <Wire.h>
 
@@ -19,6 +20,17 @@ WebServer server(80);
 
 int totalBytes = 0;
 static bool eth_connected = false;
+
+// Webserver upload form
+String uploadForm() {
+  return "<form method='POST' action='/upload' enctype='multipart/form-data'>"
+         "<input type='file' name='firmware'><br><br>"
+         "<input type='submit' value='Upload Firmware'><br><br>"
+         "</form>"
+         "<form method='GET' action='/send-firmware'>"
+         "<input type='submit' value='Send Firmware Over UART'>"
+         "</form>";
+}
 
 // Handle Ethernet Events:
 void NetworkEvent(arduino_event_id_t event) {
@@ -55,10 +67,11 @@ void NetworkEvent(arduino_event_id_t event) {
 
 void setup() {
   Serial.begin(115200);
-  //Serial1.begin(115200, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+  Serial1.begin(115200, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
-  Wire.begin(5, 4, 400000);
-  Wire.setTimeOut(20);
+  // Test - if using other communication bus
+  //Wire.begin(5, 4, 400000);
+  //Wire.setTimeOut(20);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("Failed to mount SPIFFS");
@@ -111,21 +124,27 @@ void sendFirmwareOverUART(File file) {
   uint8_t buffer[bufferSize];
   size_t bytesRead;
 
-  
+  // Send to all boards signal to wait for update
+  /*
   for(int i = 1; i <= 6 ; i ++){
     Wire.beginTransmission(i);
     Wire.write(1);
     Wire.write(2);
     Wire.endTransmission();
   }
-  
+  */
+
+  // Test - close other communcation bus before initializing SerialPort
+  /*
   Wire.end();
   delay(10);
   Serial1.begin(115200, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+  */
 
   Serial.println("Starting firmware upload over UART in 3 sec!"); 
   delay(3000);
 
+  // Sending firmware file size to RX
   if (totalBytes == 0) {
     uint32_t fileSize = file.size();
     Serial.printf("Update size: %d b \n", fileSize);
@@ -138,6 +157,7 @@ void sendFirmwareOverUART(File file) {
     Serial1.write(buffer, bytesRead); 
     Serial.print("."); 
     totalBytes += bytesRead;
+    //baud rate and/or delay between packages to adjust
     delay(200);
   }
 
@@ -149,16 +169,7 @@ void sendFirmwareOverUART(File file) {
   Wire.setTimeOut(20);
 }
 
-String uploadForm() {
-  return "<form method='POST' action='/upload' enctype='multipart/form-data'>"
-         "<input type='file' name='firmware'><br><br>"
-         "<input type='submit' value='Upload Firmware'><br><br>"
-         "</form>"
-         "<form method='GET' action='/send-firmware'>"
-         "<input type='submit' value='Send Firmware Over UART'>"
-         "</form>";
-}
-
+// Write firmware file on SPIFFS
 void handleFileUpload() {
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {

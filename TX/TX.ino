@@ -7,15 +7,26 @@
 #define UART_TX_PIN 21  
 #define FIRMWARE_FILE "/firmware.bin" 
 
+//Webserver
 const char* ssid = "qlab_goscie";         
 const char* password = "qlab2023"; 
 WebServer server(80);
 
 int totalBytes = 0;
 
+//Webserver upload form
+String uploadForm() {
+  return "<form method='POST' action='/upload' enctype='multipart/form-data'>"
+         "<input type='file' name='firmware'><br><br>"
+         "<input type='submit' value='Upload Firmware'><br><br>"
+         "</form>"
+         "<form method='GET' action='/send-firmware'>"
+         "<input type='submit' value='Send Firmware Over UART'>"
+         "</form>";
+}
+
 void setup() {
   Serial.begin(115200);
-  
   Serial1.begin(115200, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
   if (!SPIFFS.begin(true)) {
@@ -23,6 +34,7 @@ void setup() {
     return;
   }
 
+  //Start Webserver
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
@@ -69,6 +81,7 @@ void sendFirmwareOverUART(File file) {
   Serial.println("Starting firmware upload over UART in 3 sec!"); 
   delay(3000);
 
+  // Sending firmware file size to RX
   if(totalBytes == 0){
     uint32_t fileSize = file.size();
     Serial.printf("Update size: %d b \n",fileSize);
@@ -77,11 +90,12 @@ void sendFirmwareOverUART(File file) {
 
   delay(50);
   
+  // Sending firmware file in bufferSize packets
   while ((bytesRead = file.read(buffer, bufferSize)) > 0) {
     Serial1.write(buffer, bytesRead); 
     Serial.print("."); 
     totalBytes += bytesRead;
-    //dostosowac przerwe w przesylaniu paczek lub baud rate
+    //baud rate and/or delay between packages to adjust
     delay(200);
   }
 
@@ -89,17 +103,7 @@ void sendFirmwareOverUART(File file) {
   totalBytes = 0;
 }
 
-String uploadForm() {
-  return "<form method='POST' action='/upload' enctype='multipart/form-data'>"
-         "<input type='file' name='firmware'><br><br>"
-         "<input type='submit' value='Upload Firmware'><br><br>"
-         "</form>"
-         "<form method='GET' action='/send-firmware'>"
-         "<input type='submit' value='Send Firmware Over UART'>"
-         "</form>";
-}
-
-// Obsługa przesyłania pliku do SPIFFS
+// Write firmware file on SPIFFS
 void handleFileUpload() {
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
